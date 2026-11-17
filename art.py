@@ -3,7 +3,7 @@ import math
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import (QBrush, QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen,
-                           QRadialGradient)
+                           QPolygonF, QRadialGradient)
 
 
 def snowflake(p: QPainter, cx, cy, r, color, width=1.6):
@@ -80,7 +80,9 @@ def tractor(p: QPainter, x, ground_y, size, direction=1, wheel_angle=0.0, beacon
     p.setBrush(win)
     p.drawRoundedRect(QRectF(-7.3 * u, -14.1 * u, 5.1 * u, 4.7 * u), 0.5 * u, 0.5 * u)
     p.setBrush(QColor(255, 255, 255, 110))
-    p.drawPolygon([QPointF(-6.9 * u, -13.7 * u), QPointF(-5.4 * u, -13.7 * u), QPointF(-6.9 * u, -11.0 * u)])
+    # an explicit QPolygonF: passing a plain list here hits a PySide6 refcount bug (crash on Linux)
+    p.drawPolygon(QPolygonF([QPointF(-6.9 * u, -13.7 * u), QPointF(-5.4 * u, -13.7 * u),
+                             QPointF(-6.9 * u, -11.0 * u)]))
     p.setBrush(QColor("#2f3036"))
     p.drawRoundedRect(QRectF(-8.9 * u, -16.1 * u, 8.3 * u, 1.4 * u), 0.5 * u, 0.5 * u)
 
