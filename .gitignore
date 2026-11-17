@@ -1,0 +1,16 @@
+# Local Python environment and caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Build output (put SnowIsland.exe on the GitHub Releases page instead)
+build/
+dist/
+*.spec
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
