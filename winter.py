@@ -12,7 +12,7 @@ from PySide6.QtGui import (QColor, QCursor, QLinearGradient, QPainter, QPainterP
 from PySide6.QtWidgets import QApplication, QWidget
 
 import art
-import winapi
+import osapi as winapi
 
 GRAVITY = 1700.0
 BUCKET = 64
@@ -185,6 +185,7 @@ class WinterOverlay(QWidget):
                          | Qt.NoDropShadowWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setAttribute(Qt.WA_MacAlwaysShowToolWindow)
         self.setWindowTitle("Snow Island – Winter")
         self.settings = settings
         self.icons = icons

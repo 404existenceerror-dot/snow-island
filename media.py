@@ -1,20 +1,93 @@
-"""Now-playing info from Windows' own media controls (works with the Spotify desktop app,
-no internet or login needed). Runs in a background thread."""
+"""Now-playing info, no internet or login needed. Runs in a background thread.
+
+Windows: reads Windows' own media controls (Spotify, browsers, any player).
+macOS: asks the Spotify or Music app directly with AppleScript (only when it's already running,
+so it never launches them). The first time, macOS asks to allow Snow Island to control them."""
 import asyncio
+import re
+import subprocess
 import threading
 import time
 
 from PySide6.QtCore import QObject, Signal
 
-import winapi
+import osapi as winapi
 
-try:
-    from winrt.windows.media.control import \
-        GlobalSystemMediaTransportControlsSessionManager as MediaManager
-    from winrt.windows.storage.streams import Buffer, DataReader, InputStreamOptions
-    HAVE_WINRT = True
-except Exception:  # library missing: fall back to media keys only
-    HAVE_WINRT = False
+HAVE_WINRT = False
+if winapi.IS_WINDOWS:
+    try:
+        from winrt.windows.media.control import \
+            GlobalSystemMediaTransportControlsSessionManager as MediaManager
+        from winrt.windows.storage.streams import Buffer, DataReader, InputStreamOptions
+        HAVE_WINRT = True
+    except Exception:  # library missing: fall back to media keys only
+        HAVE_WINRT = False
+
+# ------------------------------------------------------------------ macOS (AppleScript)
+SEP = "\x1f"
+MAC_PLAYERS = ("Spotify", "Music")
+MAC_SCRIPT = """
+set AppleScript's text item delimiters to (ASCII character 31)
+tell application "{app}"
+    set st to player state as string
+    if st is "stopped" then return "stopped"
+    set t to current track
+    set d to duration of t
+    return {{st, name of t, artist of t, album of t, player position, d}} as text
+end tell
+"""
+MAC_ART_SCRIPT = """
+tell application "Music"
+    try
+        return raw data of artwork 1 of current track
+    end try
+    return ""
+end tell
+"""
+
+
+def mac_running(app):
+    try:
+        return subprocess.run(["pgrep", "-xq", app], timeout=2).returncode == 0
+    except Exception:
+        return False
+
+
+def _osa(script, source=False, timeout=4):
+    args = ["osascript"] + (["-s", "s"] if source else []) + ["-e", script]
+    try:
+        r = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+        return r.stdout.rstrip("\n") if r.returncode == 0 else None
+    except Exception:
+        return None
+
+
+def _num(s):
+    try:
+        return float(s.strip().replace(",", "."))
+    except (ValueError, AttributeError):
+        return 0.0
+
+
+def parse_mac_state(app, text):
+    """Turns the AppleScript answer into the same dict the Windows reader makes."""
+    parts = text.split(SEP)
+    if len(parts) < 6:
+        return {"available": False}
+    st, title, artist, album, pos, dur = parts[:6]
+    dur = _num(dur)
+    if app == "Spotify":  # Spotify reports milliseconds, Music seconds
+        dur /= 1000
+    return {"available": bool(title), "app": app, "title": title, "artist": artist,
+            "album": album, "playing": st == "playing", "pos": _num(pos), "dur": dur,
+            "pos_ts": time.time(), "thumb": None, "key": (app, title, artist),
+            "is_spotify": app == "Spotify"}
+
+
+def parse_raw_data(text):
+    """'«data PNGf89504E47...»' -> bytes."""
+    m = re.search(r"«data \w{4}([0-9A-Fa-f]+)»", text or "")
+    return bytes.fromhex(m.group(1)) if m else None
 
 
 def _secs(td):
@@ -36,8 +109,48 @@ class MediaWatcher(QObject):
         self._wake = None
         self._session = None
         self._stop = False
+        self._mac_app = None
+        self._mac_wake = threading.Event()
         if HAVE_WINRT:
             threading.Thread(target=self._run, daemon=True).start()
+        elif winapi.IS_MAC:
+            threading.Thread(target=self._run_mac, daemon=True).start()
+
+    # ------------------------------------------------------------ macOS thread
+    def _run_mac(self):
+        last_key, thumb = None, None
+        while not self._stop:
+            info = {"available": False}
+            for app in MAC_PLAYERS:
+                if not mac_running(app):
+                    continue
+                out = _osa(MAC_SCRIPT.format(app=app))
+                if not out or out == "stopped":
+                    continue
+                info = parse_mac_state(app, out)
+                if info["key"] != last_key:
+                    last_key = info["key"]
+                    thumb = parse_raw_data(_osa(MAC_ART_SCRIPT, source=True, timeout=6)) \
+                        if app == "Music" else None
+                info["thumb"] = thumb
+                self._mac_app = app
+                if info["playing"]:
+                    break  # prefer whichever player is actually playing (Spotify first)
+            self.updated.emit(info)
+            self._mac_wake.wait(1.0)
+            self._mac_wake.clear()
+
+    def _mac_command(self, name):
+        verb = {"toggle": "playpause", "next": "next track", "prev": "previous track"}.get(name)
+        app = self._mac_app or next((a for a in MAC_PLAYERS if mac_running(a)), None)
+        if not verb or not app:
+            return
+
+        def go():
+            _osa(f'tell application "{app}" to {verb}')
+            time.sleep(0.25)
+            self._mac_wake.set()
+        threading.Thread(target=go, daemon=True).start()
 
     # ------------------------------------------------------------ thread
     def _run(self):
@@ -155,6 +268,9 @@ class MediaWatcher(QObject):
             winapi.press_key(vk)
 
     def command(self, name):
+        if winapi.IS_MAC:
+            self._mac_command(name)
+            return
         if self._loop is None:
             self._media_key(name)
             return

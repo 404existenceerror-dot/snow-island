@@ -8,7 +8,7 @@ from PySide6.QtGui import QColor, QFont, QFontMetricsF, QImage, QPainter, QPaint
 from PySide6.QtWidgets import QApplication, QMenu, QWidget
 
 import art
-import winapi
+import osapi as winapi
 
 MENU_STYLE = """
 QMenu { background:#1c1c1f; color:#f2f2f2; border:1px solid #333; border-radius:10px; padding:6px; }
@@ -20,9 +20,14 @@ QMenu::indicator { width:14px; height:14px; margin-left:4px; }
 
 
 def _font(px, weight=QFont.Normal):
-    f = QFont("Segoe UI Variable Display")
-    if not f.exactMatch():
-        f = QFont("Segoe UI")
+    if winapi.IS_MAC:
+        f = QFont(".AppleSystemUIFont")
+        if not f.exactMatch():
+            f = QFont("Helvetica Neue")
+    else:
+        f = QFont("Segoe UI Variable Display")
+        if not f.exactMatch():
+            f = QFont("Segoe UI")
     f.setPixelSize(max(6, int(px)))
     f.setWeight(weight)
     return f
@@ -41,6 +46,7 @@ class DynamicIsland(QWidget):
                          | Qt.WindowDoesNotAcceptFocus | Qt.NoDropShadowWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setAttribute(Qt.WA_MacAlwaysShowToolWindow)
         self.setMouseTracking(True)
         self.setWindowTitle("Snow Island")
         self.settings = settings
@@ -103,7 +109,9 @@ class DynamicIsland(QWidget):
         if vert not in ("top", "bottom") or horiz not in ("left", "center", "right"):
             vert, horiz = "top", "center"
         oy, ox = float(self.settings["island_offset_y"]), float(self.settings["island_offset_x"])
-        edge = geo.top() + oy if vert == "top" else avail.bottom() + 1 - oy
+        # on a Mac the top edge is below the menu bar (and the camera notch)
+        top = avail.top() if winapi.IS_MAC else geo.top()
+        edge = top + oy if vert == "top" else avail.bottom() + 1 - oy
         if horiz == "left":
             ax = geo.left() + 12 + ox
         elif horiz == "right":

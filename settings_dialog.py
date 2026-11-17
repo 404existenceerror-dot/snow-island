@@ -1,11 +1,16 @@
 """Customization window. Every change applies instantly and is saved automatically."""
+import sys
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QCheckBox, QColorDialog, QComboBox, QDialog, QFormLayout, QHBoxLayout,
                                QLabel, QPushButton, QSlider, QTabWidget, QVBoxLayout, QWidget)
 
+MAC = sys.platform == "darwin"
+BAR = "Dock" if MAC else "taskbar"
+
 STYLE = """
-QDialog, QWidget { background:#141417; color:#ececf1; font-family:'Segoe UI'; font-size:13px; }
+QDialog, QWidget { background:#141417; color:#ececf1; font-family:'Segoe UI', 'Helvetica Neue'; font-size:13px; }
 QTabWidget::pane { border:1px solid #2a2a30; border-radius:10px; top:-1px; }
 QTabBar::tab { background:#1d1d22; padding:8px 18px; border-top-left-radius:8px; border-top-right-radius:8px;
                margin-right:3px; color:#a8a8b3; }
@@ -77,7 +82,7 @@ class SettingsDialog(QDialog):
         self._check(f, "scroll_volume", "Scroll on the island to change volume")
         self._slider(f, "timer_step_min", "Timer button adds", 1, 30, 1, "{} min")
         self._check(f, "hide_in_fullscreen", "Hide during fullscreen apps and games")
-        self._check(f, "start_with_windows", "Start with Windows")
+        self._check(f, "start_with_windows", "Start when I log in" if MAC else "Start with Windows")
 
         # ---------------- Winter
         f = self._tab(tabs, "Winter")
@@ -92,7 +97,7 @@ class SettingsDialog(QDialog):
                     [("desktop", "Only on the desktop"), ("everywhere", "Everywhere"), ("off", "Off")])
         self._check(f, "icon_piles", "Snow piles up on desktop icons")
         self._check(f, "mouse_brush", "Flick the mouse over an icon to brush its snow off")
-        self._check(f, "ground_snow", "Snow piles up on the taskbar")
+        self._check(f, "ground_snow", f"Snow piles up on the {BAR}")
         self._check(f, "piles_only_on_desktop", "Hide piles and snowmen behind open windows")
         self._check(f, "snow_over_apps", "Keep snowing over open apps")
         self._slider(f, "fps", "Animation smoothness", 15, 60, 1, "{} fps")
@@ -101,7 +106,7 @@ class SettingsDialog(QDialog):
         self._color(f, "tractor_color", "Snow truck color")
         self._color(f, "scarf_color", "Snowman scarf color")
         h2 = QLabel("Set the truck timer to 0 to only call it yourself. Snowman: press and hold on the "
-                    "taskbar snow and drag sideways to roll a big ball, then let go. Roll two more, lift "
+                    f"{BAR} snow and drag sideways to roll a big ball, then let go. Roll two more, lift "
                     "each one up and drop it on top.")
         h2.setObjectName("hint")
         h2.setWordWrap(True)

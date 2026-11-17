@@ -1,11 +1,16 @@
-"""Settings stored as JSON in %APPDATA%\\SnowIsland\\settings.json."""
+"""Settings stored as JSON in %APPDATA%\\SnowIsland\\settings.json (Windows) or
+~/Library/Application Support/SnowIsland/settings.json (macOS)."""
 import copy
 import json
 import os
+import sys
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
-APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SnowIsland")
+if sys.platform == "darwin":
+    APP_DIR = os.path.expanduser("~/Library/Application Support/SnowIsland")
+else:
+    APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SnowIsland")
 PATH = os.path.join(APP_DIR, "settings.json")
 
 DEFAULTS = {

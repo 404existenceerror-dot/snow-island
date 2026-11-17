@@ -100,6 +100,10 @@ def hwnd_val(h):
     return int(h or 0)
 
 
+def app_setup():
+    pass  # nothing needed on Windows
+
+
 # ---------------------------------------------------------------- single instance
 _mutex = None
 

@@ -1,6 +1,6 @@
-"""Snow Island – a Dynamic Island + winter mode for Windows 11.
+"""Snow Island – a Dynamic Island + winter mode for Windows 10/11 and macOS.
 
-Runs fully locally. Start it with start.bat (or: .venv\\Scripts\\pythonw.exe snow_island.py).
+Runs fully locally. Start it with start.bat (Windows) or start.command (macOS).
 """
 import os
 import sys
@@ -10,17 +10,18 @@ from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 import art
-import winapi
+import osapi as winapi
 from island import MENU_STYLE, DynamicIsland
 from media import MediaWatcher
 from settings import Settings
 from settings_dialog import SettingsDialog
 from winter import WinterOverlay
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 REPO_URL = "https://github.com/404existenceerror-dot/snow-island"
 HERE = os.path.dirname(os.path.abspath(__file__))
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+LAUNCH_AGENT = os.path.expanduser("~/Library/LaunchAgents/com.snowisland.app.plist")
 
 
 def make_icon():
@@ -148,14 +149,23 @@ class App:
             self.island.peek("snowman", 3, "Snowman built!")
 
     def open_spotify(self):
-        try:
-            os.startfile("spotify:")
-        except OSError:
+        if winapi.IS_MAC:
+            import subprocess
+            ok = subprocess.run(["open", "-a", "Spotify"], capture_output=True).returncode == 0
+        else:
+            try:
+                os.startfile("spotify:")
+                ok = True
+            except OSError:
+                ok = False
+        if not ok:
             self.island.peek("msg", 3, "Spotify isn't installed")
 
     @staticmethod
     def windows_version():
         import platform
+        if winapi.IS_MAC:
+            return f"macOS {platform.mac_ver()[0]} ({platform.machine()})"
         try:
             build = int(platform.version().split(".")[2])
         except (IndexError, ValueError):
@@ -171,7 +181,10 @@ class App:
         """Opens the GitHub bug form in the browser with the app and Windows versions filled in.
         Nothing is sent automatically; the person reviews and submits it themselves."""
         from urllib.parse import urlencode
-        how = "SnowIsland.exe (download)" if getattr(sys, "frozen", False) else "start.bat (source code)"
+        if getattr(sys, "frozen", False):
+            how = "Snow Island.app (download)" if winapi.IS_MAC else "SnowIsland.exe (download)"
+        else:
+            how = "start.command (source code)" if winapi.IS_MAC else "start.bat (source code)"
         q = urlencode({"template": "bug_report.yml", "labels": "bug", "version": __version__,
                        "windows": self.windows_version(), "how": how})
         self._open_url(f"{REPO_URL}/issues/new?{q}")
@@ -192,6 +205,9 @@ class App:
         self.dialog.activateWindow()
 
     def set_autostart(self, on):
+        if winapi.IS_MAC:
+            self._set_autostart_mac(on)
+            return
         import winreg
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
@@ -213,6 +229,27 @@ class App:
         except OSError:
             pass
 
+    @staticmethod
+    def _set_autostart_mac(on):
+        """A LaunchAgent in ~/Library/LaunchAgents starts the app when the user logs in."""
+        try:
+            if not on:
+                if os.path.exists(LAUNCH_AGENT):
+                    os.remove(LAUNCH_AGENT)
+                return
+            if getattr(sys, "frozen", False):  # inside "Snow Island.app/Contents/MacOS/"
+                app = os.path.abspath(os.path.join(os.path.dirname(sys.executable), "..", ".."))
+                args = ["/usr/bin/open", "-a", app]
+            else:
+                args = [sys.executable, os.path.join(HERE, "snow_island.py")]
+            import plistlib
+            os.makedirs(os.path.dirname(LAUNCH_AGENT), exist_ok=True)
+            with open(LAUNCH_AGENT, "wb") as f:
+                plistlib.dump({"Label": "com.snowisland.app", "ProgramArguments": args,
+                               "RunAtLoad": True, "ProcessType": "Interactive"}, f)
+        except OSError:
+            pass
+
     def quit(self):
         self.settings.save()
         self.tray.hide()
@@ -226,7 +263,7 @@ def diagnose():
     import platform
     from settings import APP_DIR
     import media
-    lines = [f"Snow Island {__version__}", f"Windows: {platform.platform()}",
+    lines = [f"Snow Island {__version__}", f"System: {platform.platform()}",
              f"Python: {platform.python_version()}  frozen: {getattr(sys, 'frozen', False)}",
              f"Media library available: {media.HAVE_WINRT}"]
     if media.HAVE_WINRT:
@@ -242,14 +279,24 @@ def diagnose():
             lines += ["Media sessions:"] + (asyncio.run(sessions()) or ["  (none)"])
         except Exception as e:
             lines.append(f"Media error: {e!r}")
-    lines.append(f"Desktop icons found: {len(winapi.DesktopIcons().rects())}")
+    if winapi.IS_MAC:
+        for app in media.MAC_PLAYERS:
+            lines.append(f"{app} running: {media.mac_running(app)}")
+        icons = winapi.DesktopIcons().refresh()
+    else:
+        icons = winapi.DesktopIcons().rects()
+    lines.append(f"Desktop icons found: {len(icons)}")
     lines.append(f"Battery: {winapi.battery()}")
     os.makedirs(APP_DIR, exist_ok=True)
     path = os.path.join(APP_DIR, "diagnose.txt")
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     try:
-        os.startfile(path)
+        if winapi.IS_MAC:
+            import subprocess
+            subprocess.run(["open", path])
+        else:
+            os.startfile(path)
     except OSError:
         pass
 
@@ -262,11 +309,21 @@ def main():
         return
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     qapp = QApplication(sys.argv)
+    winapi.app_setup()  # after Qt has created its NSApplication on macOS
     qapp.setQuitOnLastWindowClosed(False)
     qapp.setApplicationName("Snow Island")
     qapp.setWindowIcon(make_icon())
     app = App(qapp)  # noqa: F841 (kept alive for the app's lifetime)
-    sys.exit(qapp.exec())
+    errors = []
+    autoquit = float(os.environ.get("SNOW_ISLAND_AUTOQUIT", "0") or 0)
+    if autoquit > 0:  # used by the automatic build to check that the app runs without errors
+        hook = sys.excepthook
+        sys.excepthook = lambda *exc: (errors.append(exc), hook(*exc))
+        QTimer.singleShot(1500, app.plow)
+        QTimer.singleShot(2500, app.open_settings)
+        QTimer.singleShot(int(autoquit * 1000), app.quit)
+    code = qapp.exec()
+    sys.exit(1 if errors else code)
 
 
 if __name__ == "__main__":

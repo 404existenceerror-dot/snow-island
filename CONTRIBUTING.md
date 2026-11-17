@@ -22,7 +22,8 @@ Use the [issue forms](https://github.com/404existenceerror-dot/snow-island/issue
 - `winter.py`: snow, piles, snowballs, snowmen, snow truck
 - `media.py`: now-playing info from Windows media controls
 - `art.py`: all hand-drawn graphics
-- `winapi.py`: Windows helpers (desktop icons, battery, CPU, window checks)
+- `winapi.py` / `macapi.py`: Windows / macOS helpers (desktop icons, battery, CPU, window checks).
+  `osapi.py` picks the right one; both expose the same functions.
 - `settings.py`: defaults and saving; `settings_dialog.py`: the settings window
 
 ### Guidelines
@@ -33,5 +34,5 @@ Use the [issue forms](https://github.com/404existenceerror-dot/snow-island/issue
 
 ## Making a release
 1. Bump `__version__` in `snow_island.py`.
-2. Run `build_exe.bat` to produce `dist\SnowIsland.exe`.
-3. Create a GitHub Release (tag `vX.Y.Z`) and attach the exe.
+2. Commit, then push a tag: `git tag vX.Y.Z` and `git push origin vX.Y.Z`.
+3. GitHub Actions builds the Windows exe and the Mac apps and creates the Release.

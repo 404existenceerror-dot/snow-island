@@ -1,0 +1,80 @@
+# Builds SnowIsland.exe (Windows) and Snow Island.app (macOS) on GitHub's machines.
+# - Every push: builds and runs a short self-test on both systems.
+# - Pushing a tag like v1.1.0: also creates a GitHub Release with the downloads attached.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: python -m pip install -r requirements.txt pyinstaller
+      - name: Self-test (runs the app for 8 seconds)
+        env:
+          SNOW_ISLAND_AUTOQUIT: "8"
+        run: python snow_island.py
+      - name: Build SnowIsland.exe
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name SnowIsland --icon assets\icon.ico --collect-submodules winrt snow_island.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SnowIsland-windows
+          path: dist/SnowIsland.exe
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest       # Apple Silicon (M1 and newer)
+          - runner: macos-15-intel     # Intel Macs
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r requirements.txt
+      - name: Self-test (runs the app for 8 seconds)
+        env:
+          SNOW_ISLAND_AUTOQUIT: "8"
+        run: .venv/bin/python snow_island.py
+      - name: Parser tests
+        run: .venv/bin/python tests/test_mac_parsers.py
+      - name: Build Snow Island.app
+        run: bash build_mac.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SnowIsland-mac-${{ runner.arch }}
+          path: dist/SnowIsland-mac-*.zip
+
+  release:
+    # still publish when one Mac build fails (for example if GitHub retires the Intel machines)
+    if: startsWith(github.ref, 'refs/tags/v') && !cancelled() && needs.windows.result == 'success'
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          generate_release_notes: true
