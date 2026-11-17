@@ -79,7 +79,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"  # 3.12+ avoids a PySide6 refcount crash seen on Linux with 3.11
       - name: Install system libraries for Qt and a virtual screen
         run: |
           sudo apt-get update
