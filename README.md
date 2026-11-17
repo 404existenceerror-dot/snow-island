@@ -1,13 +1,13 @@
 # ❄️ Snow Island
 
-**Make your desktop snow.** A floating, phone-style "island" bar for **Windows 10/11 and macOS**
+**Make your desktop snow.** A floating, phone-style "island" bar for **Windows 10/11, macOS and Linux**
 with a cozy **winter mode**: snow falls across your screen, piles up on your desktop icons and
 taskbar, and you can throw snowballs, build snowmen, and call a little snow truck to clean it all up.
 
 Everything runs **locally on your PC**. No account, no server, no tracking.
 
 <p align="center">
-  <a href="https://github.com/404existenceerror-dot/snow-island/releases/latest"><b>⬇️ Download (Windows / Mac)</b></a> ·
+  <a href="https://github.com/404existenceerror-dot/snow-island/releases/latest"><b>⬇️ Download (Windows / Mac / Linux)</b></a> ·
   <a href="https://github.com/404existenceerror-dot/snow-island/issues/new?template=bug_report.yml">🐞 Report a bug</a> ·
   <a href="https://github.com/404existenceerror-dot/snow-island/issues/new?template=feature_request.yml">💡 Suggest a feature</a>
 </p>
@@ -46,6 +46,18 @@ Everything runs **locally on your PC**. No account, no server, no tracking.
 ---
 
 ## Download and run
+
+On the [Releases page](https://github.com/404existenceerror-dot/snow-island/releases/latest) pick the file for your computer:
+
+| Your computer | File |
+| --- | --- |
+| Windows 10 / 11 | `SnowIsland.exe` |
+| Mac with an Apple chip (M1 and newer) | `SnowIsland-mac-arm64.zip` |
+| Mac with an Intel processor | `SnowIsland-mac-x86_64.zip` |
+| Linux (64-bit PC) | `SnowIsland-linux-x86_64` |
+
+Not sure which Mac you have? Apple menu → **About This Mac**: *Chip: Apple M…* means arm64,
+*Processor: Intel* means x86_64.
 
 ### Windows
 
@@ -91,6 +103,36 @@ bash start.command
 
 After the first time you can also just double-click `start.command`.
 
+### Linux (beta)
+Works best on an **X11 (Xorg)** session: Cinnamon, MATE, Xfce, KDE or GNOME on Xorg.
+On Wayland it runs too, but snow can't hide behind windows there.
+
+- **Snow on desktop icons** works where the desktop shares icon positions: Cinnamon (Nemo),
+  MATE (Caja) and GNOME's *Desktop Icons* extension. Elsewhere the snow falls and piles up
+  along the bottom of the screen.
+- **Music**: Spotify, browsers, VLC, Rhythmbox and any player that supports MPRIS.
+
+#### Option 1: the ready-made app
+Download `SnowIsland-linux-x86_64`, make it runnable and start it:
+
+```bash
+chmod +x SnowIsland-linux-x86_64 && ./SnowIsland-linux-x86_64
+```
+
+If it says a library is missing (on Ubuntu/Debian), install Qt's helpers once:
+
+```bash
+sudo apt install libxcb-cursor0 libxkbcommon-x11-0
+```
+
+#### Option 2: run from the source code
+You need Python 3.10+ (`sudo apt install python3 python3-venv` on Ubuntu/Debian).
+Download the ZIP, unzip it, open a terminal in that folder and run:
+
+```bash
+bash start.sh
+```
+
 ---
 
 ## How to use it
@@ -115,22 +157,23 @@ media controls, so there's nothing to log into. Other players (browsers, YouTube
 too; Spotify is preferred when several are playing.
 
 ### Start automatically
-Settings → **Widgets** → **Start with Windows** (on a Mac: **Start when I log in**).
+Settings → **Widgets** → **Start with Windows** (on Mac and Linux: **Start when I log in**).
 
 ---
 
 ## Privacy
 - Snow Island makes **no internet connections**. (Running from source downloads the Python
-  libraries once during setup; the `.exe` doesn't need even that.)
+  libraries once during setup; the ready-made apps don't need even that.)
 - Settings are saved in `%APPDATA%\SnowIsland\settings.json` (Mac:
-  `~/Library/Application Support/SnowIsland/settings.json`). Nothing else is stored.
+  `~/Library/Application Support/SnowIsland/settings.json`, Linux:
+  `~/.config/SnowIsland/settings.json`). Nothing else is stored.
 - To read where your desktop icons are, it asks Windows Explorer (Mac: Finder) for the icon
   positions. It never reads or changes your files.
 
 ## Uninstall
 1. Quit it from the tray icon (and turn off **Start with Windows** first if you enabled it).
 2. Delete the folder (or the `.exe` / the app) and `%APPDATA%\SnowIsland`
-   (Mac: `~/Library/Application Support/SnowIsland`).
+   (Mac: `~/Library/Application Support/SnowIsland`, Linux: `~/.config/SnowIsland`).
 
 ---
 
@@ -164,7 +207,8 @@ Pull requests are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Build it yourself
 - **Windows:** double-click **`build_exe.bat`**. It creates `dist\SnowIsland.exe`.
 - **Mac:** run `bash build_mac.sh`. It creates `dist/Snow Island.app` and a zip of it.
-- **Automatic:** every push is built and self-tested on Windows and macOS by GitHub Actions.
+- **Linux:** run `bash build_linux.sh`. It creates `dist/SnowIsland-linux-x86_64`.
+- **Automatic:** every push is built and self-tested on Windows, macOS and Linux by GitHub Actions.
   Pushing a tag like `v1.1.0` publishes a Release with all the downloads attached.
 
 ## Project layout
@@ -175,7 +219,7 @@ Pull requests are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 | `winter.py` | Snow, piles, snowballs, snowmen and the snow truck |
 | `media.py` | Now-playing info from Windows media controls |
 | `art.py` | Hand-drawn graphics (truck, snowman, icons) |
-| `winapi.py` / `macapi.py` | Windows / macOS helpers (desktop icons, battery, CPU, windows); `osapi.py` picks one |
+| `winapi.py` / `macapi.py` / `linuxapi.py` | Windows / macOS / Linux helpers (desktop icons, battery, CPU, windows); `osapi.py` picks one |
 | `settings.py` / `settings_dialog.py` | Settings storage and the settings window |
 
 ## License

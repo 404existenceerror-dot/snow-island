@@ -2,7 +2,8 @@
 
 Windows: reads Windows' own media controls (Spotify, browsers, any player).
 macOS: asks the Spotify or Music app directly with AppleScript (only when it's already running,
-so it never launches them). The first time, macOS asks to allow Snow Island to control them."""
+so it never launches them). The first time, macOS asks to allow Snow Island to control them.
+Linux: reads the standard MPRIS interface over D-Bus (Spotify, browsers, VLC, Rhythmbox...)."""
 import asyncio
 import re
 import subprocess
@@ -90,6 +91,66 @@ def parse_raw_data(text):
     return bytes.fromhex(m.group(1)) if m else None
 
 
+# ------------------------------------------------------------------ Linux (MPRIS over D-Bus)
+MPRIS_PATH = "/org/mpris/MediaPlayer2"
+MPRIS_PLAYER = "org.mpris.MediaPlayer2.Player"
+
+
+def _dbus(dest, path, method, *args, timeout=3):
+    cmd = ["dbus-send", "--session", "--print-reply", f"--reply-timeout={timeout * 1000}",
+           f"--dest={dest}", path, method] + list(args)
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 1)
+        return r.stdout if r.returncode == 0 else None
+    except Exception:
+        return None
+
+
+def mpris_players():
+    out = _dbus("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.ListNames") or ""
+    return re.findall(r'string "(org\.mpris\.MediaPlayer2\.[^"]+)"', out)
+
+
+_VALUE = re.compile(r'(?:string|object path) "(.*)"\s*$|(?:u?int(?:16|32|64)|double|byte) (-?[\d.]+)\s*$')
+
+
+def parse_mpris(text):
+    """`dbus-send --print-reply ... Properties.GetAll Player` -> {"status", "title", "artist",
+    "album", "length" (s), "position" (s), "art"}."""
+    lines = (text or "").splitlines()
+    want = {"PlaybackStatus": "status", "xesam:title": "title", "xesam:artist": "artist",
+            "xesam:album": "album", "mpris:length": "length", "Position": "position",
+            "mpris:artUrl": "art"}
+    out = {}
+    for i, line in enumerate(lines):
+        m = re.match(r'\s*string "([^"]+)"\s*$', line)
+        if not m or m.group(1) not in want or i + 1 >= len(lines):
+            continue
+        key, nxt = want[m.group(1)], lines[i + 1]
+        if "array [" in nxt:  # list of strings (artists)
+            vals = []
+            for l2 in lines[i + 2:]:
+                if l2.strip() == "]":
+                    break
+                v = _VALUE.search(l2)
+                if v and v.group(1) is not None:
+                    vals.append(v.group(1))
+            out[key] = ", ".join(vals)
+        else:
+            v = _VALUE.search(nxt)
+            if v:
+                out[key] = v.group(1) if v.group(1) is not None else float(v.group(2))
+    for k in ("length", "position"):  # microseconds -> seconds
+        if isinstance(out.get(k), float):
+            out[k] /= 1_000_000
+    return out
+
+
+def mpris_state(name):
+    return parse_mpris(_dbus(name, MPRIS_PATH, "org.freedesktop.DBus.Properties.GetAll",
+                             f"string:{MPRIS_PLAYER}"))
+
+
 def _secs(td):
     try:
         return td.total_seconds()
@@ -115,6 +176,54 @@ class MediaWatcher(QObject):
             threading.Thread(target=self._run, daemon=True).start()
         elif winapi.IS_MAC:
             threading.Thread(target=self._run_mac, daemon=True).start()
+        elif winapi.IS_LINUX:
+            threading.Thread(target=self._run_linux, daemon=True).start()
+
+    # ------------------------------------------------------------ Linux thread
+    def _run_linux(self):
+        last_key, thumb = None, None
+        while not self._stop:
+            info = {"available": False}
+            players = mpris_players()
+            # Spotify first, then whatever is playing, then anything paused
+            players.sort(key=lambda n: (".spotify" not in n.lower(),))
+            best = None
+            for name in players:
+                st = mpris_state(name)
+                if not st.get("title"):
+                    continue
+                if best is None or (st.get("status") == "Playing" and best[1].get("status") != "Playing"):
+                    best = (name, st)
+                if st.get("status") == "Playing":
+                    break
+            if best:
+                name, st = best
+                app = name.rsplit(".", 1)[-1]
+                key = (app, st.get("title", ""), st.get("artist", ""))
+                if key != last_key:
+                    last_key = key
+                    thumb = winapi.file_url_bytes(st["art"]) if st.get("art") else None
+                info = {"available": True, "app": app, "title": st.get("title", ""),
+                        "artist": st.get("artist", ""), "album": st.get("album", ""),
+                        "playing": st.get("status") == "Playing", "pos": st.get("position", 0.0),
+                        "dur": st.get("length", 0.0), "pos_ts": time.time(), "thumb": thumb,
+                        "key": key, "is_spotify": "spotify" in app.lower()}
+                self._mac_app = name
+            self.updated.emit(info)
+            self._mac_wake.wait(1.0)
+            self._mac_wake.clear()
+
+    def _linux_command(self, name):
+        method = {"toggle": "PlayPause", "next": "Next", "prev": "Previous"}.get(name)
+        dest = self._mac_app
+        if not method or not dest:
+            return
+
+        def go():
+            _dbus(dest, MPRIS_PATH, f"{MPRIS_PLAYER}.{method}")
+            time.sleep(0.25)
+            self._mac_wake.set()
+        threading.Thread(target=go, daemon=True).start()
 
     # ------------------------------------------------------------ macOS thread
     def _run_mac(self):
@@ -270,6 +379,9 @@ class MediaWatcher(QObject):
     def command(self, name):
         if winapi.IS_MAC:
             self._mac_command(name)
+            return
+        if winapi.IS_LINUX:
+            self._linux_command(name)
             return
         if self._loop is None:
             self._media_key(name)

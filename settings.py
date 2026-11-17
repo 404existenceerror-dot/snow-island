@@ -9,6 +9,8 @@ from PySide6.QtCore import QObject, QTimer, Signal
 
 if sys.platform == "darwin":
     APP_DIR = os.path.expanduser("~/Library/Application Support/SnowIsland")
+elif sys.platform.startswith("linux"):
+    APP_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "SnowIsland")
 else:
     APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SnowIsland")
 PATH = os.path.join(APP_DIR, "settings.json")

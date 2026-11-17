@@ -7,7 +7,8 @@ from PySide6.QtWidgets import (QCheckBox, QColorDialog, QComboBox, QDialog, QFor
                                QLabel, QPushButton, QSlider, QTabWidget, QVBoxLayout, QWidget)
 
 MAC = sys.platform == "darwin"
-BAR = "Dock" if MAC else "taskbar"
+LINUX = sys.platform.startswith("linux")
+BAR = "Dock" if MAC else "panel" if LINUX else "taskbar"
 
 STYLE = """
 QDialog, QWidget { background:#141417; color:#ececf1; font-family:'Segoe UI', 'Helvetica Neue'; font-size:13px; }
@@ -82,7 +83,7 @@ class SettingsDialog(QDialog):
         self._check(f, "scroll_volume", "Scroll on the island to change volume")
         self._slider(f, "timer_step_min", "Timer button adds", 1, 30, 1, "{} min")
         self._check(f, "hide_in_fullscreen", "Hide during fullscreen apps and games")
-        self._check(f, "start_with_windows", "Start when I log in" if MAC else "Start with Windows")
+        self._check(f, "start_with_windows", "Start when I log in" if (MAC or LINUX) else "Start with Windows")
 
         # ---------------- Winter
         f = self._tab(tabs, "Winter")

@@ -10,4 +10,7 @@ winrt-Windows.Storage.Streams>=2.0; sys_platform == "win32"
 # macOS: window and mouse info, system stats
 pyobjc-framework-Quartz>=10; sys_platform == "darwin"
 pyobjc-framework-Cocoa>=10; sys_platform == "darwin"
-psutil>=5.9; sys_platform == "darwin"
+psutil>=5.9; sys_platform == "darwin" or sys_platform == "linux"
+
+# Linux: window info on X11
+python-xlib>=0.33; sys_platform == "linux"

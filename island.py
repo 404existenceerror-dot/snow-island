@@ -109,8 +109,8 @@ class DynamicIsland(QWidget):
         if vert not in ("top", "bottom") or horiz not in ("left", "center", "right"):
             vert, horiz = "top", "center"
         oy, ox = float(self.settings["island_offset_y"]), float(self.settings["island_offset_x"])
-        # on a Mac the top edge is below the menu bar (and the camera notch)
-        top = avail.top() if winapi.IS_MAC else geo.top()
+        # on a Mac/Linux the top edge is below the menu bar or top panel (and the camera notch)
+        top = geo.top() if winapi.IS_WINDOWS else avail.top()
         edge = top + oy if vert == "top" else avail.bottom() + 1 - oy
         if horiz == "left":
             ax = geo.left() + 12 + ox

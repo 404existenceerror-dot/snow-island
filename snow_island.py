@@ -22,6 +22,8 @@ REPO_URL = "https://github.com/404existenceerror-dot/snow-island"
 HERE = os.path.dirname(os.path.abspath(__file__))
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 LAUNCH_AGENT = os.path.expanduser("~/Library/LaunchAgents/com.snowisland.app.plist")
+AUTOSTART_DESKTOP = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
+                                 "autostart", "snow-island.desktop")
 
 
 def make_icon():
@@ -152,6 +154,18 @@ class App:
         if winapi.IS_MAC:
             import subprocess
             ok = subprocess.run(["open", "-a", "Spotify"], capture_output=True).returncode == 0
+        elif winapi.IS_LINUX:
+            import shutil
+            import subprocess
+            exe = shutil.which("spotify")
+            ok = bool(exe)
+            if exe:
+                subprocess.Popen([exe], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            elif shutil.which("flatpak"):
+                ok = subprocess.run(["flatpak", "info", "com.spotify.Client"], capture_output=True).returncode == 0
+                if ok:
+                    subprocess.Popen(["flatpak", "run", "com.spotify.Client"], stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL, start_new_session=True)
         else:
             try:
                 os.startfile("spotify:")
@@ -166,6 +180,14 @@ class App:
         import platform
         if winapi.IS_MAC:
             return f"macOS {platform.mac_ver()[0]} ({platform.machine()})"
+        if winapi.IS_LINUX:
+            try:
+                name = platform.freedesktop_os_release().get("PRETTY_NAME", "Linux")
+            except OSError:
+                name = "Linux"
+            session = os.environ.get("XDG_SESSION_TYPE", "?")
+            desktop = os.environ.get("XDG_CURRENT_DESKTOP", "?")
+            return f"{name}, {desktop}, {session}"
         try:
             build = int(platform.version().split(".")[2])
         except (IndexError, ValueError):
@@ -182,9 +204,11 @@ class App:
         Nothing is sent automatically; the person reviews and submits it themselves."""
         from urllib.parse import urlencode
         if getattr(sys, "frozen", False):
-            how = "Snow Island.app (download)" if winapi.IS_MAC else "SnowIsland.exe (download)"
+            how = ("Snow Island.app (download)" if winapi.IS_MAC else
+                   "SnowIsland-linux (download)" if winapi.IS_LINUX else "SnowIsland.exe (download)")
         else:
-            how = "start.command (source code)" if winapi.IS_MAC else "start.bat (source code)"
+            how = ("start.command (source code)" if winapi.IS_MAC else
+                   "start.sh (source code)" if winapi.IS_LINUX else "start.bat (source code)")
         q = urlencode({"template": "bug_report.yml", "labels": "bug", "version": __version__,
                        "windows": self.windows_version(), "how": how})
         self._open_url(f"{REPO_URL}/issues/new?{q}")
@@ -207,6 +231,9 @@ class App:
     def set_autostart(self, on):
         if winapi.IS_MAC:
             self._set_autostart_mac(on)
+            return
+        if winapi.IS_LINUX:
+            self._set_autostart_linux(on)
             return
         import winreg
         try:
@@ -250,6 +277,25 @@ class App:
         except OSError:
             pass
 
+    @staticmethod
+    def _set_autostart_linux(on):
+        """A .desktop file in ~/.config/autostart starts the app when the user logs in."""
+        try:
+            if not on:
+                if os.path.exists(AUTOSTART_DESKTOP):
+                    os.remove(AUTOSTART_DESKTOP)
+                return
+            if getattr(sys, "frozen", False):
+                cmd = f'"{sys.executable}"'
+            else:
+                cmd = f'"{sys.executable}" "{os.path.join(HERE, "snow_island.py")}"'
+            os.makedirs(os.path.dirname(AUTOSTART_DESKTOP), exist_ok=True)
+            with open(AUTOSTART_DESKTOP, "w", encoding="utf-8") as f:
+                f.write("[Desktop Entry]\nType=Application\nName=Snow Island\n"
+                        f"Exec={cmd}\nX-GNOME-Autostart-enabled=true\n")
+        except OSError:
+            pass
+
     def quit(self):
         self.settings.save()
         self.tray.hide()
@@ -283,6 +329,13 @@ def diagnose():
         for app in media.MAC_PLAYERS:
             lines.append(f"{app} running: {media.mac_running(app)}")
         icons = winapi.DesktopIcons().refresh()
+    elif winapi.IS_LINUX:
+        lines.append(f"Session: {os.environ.get('XDG_SESSION_TYPE', '?')}, "
+                     f"desktop: {os.environ.get('XDG_CURRENT_DESKTOP', '?')}, "
+                     f"X11 connection: {winapi.x11_ok()}")
+        players = media.mpris_players()
+        lines.append(f"Music players (MPRIS): {', '.join(p.rsplit('.', 1)[-1] for p in players) or '(none)'}")
+        icons = winapi.DesktopIcons().refresh()
     else:
         icons = winapi.DesktopIcons().rects()
     lines.append(f"Desktop icons found: {len(icons)}")
@@ -292,9 +345,9 @@ def diagnose():
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     try:
-        if winapi.IS_MAC:
+        if winapi.IS_MAC or winapi.IS_LINUX:
             import subprocess
-            subprocess.run(["open", path])
+            subprocess.run(["open" if winapi.IS_MAC else "xdg-open", path])
         else:
             os.startfile(path)
     except OSError:
@@ -307,6 +360,9 @@ def main():
         return
     if winapi.already_running():
         return
+    if winapi.IS_LINUX and winapi.WAYLAND and not os.environ.get("QT_QPA_PLATFORM"):
+        # Wayland doesn't let apps place their own windows, so run through XWayland instead
+        os.environ["QT_QPA_PLATFORM"] = "xcb"
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     qapp = QApplication(sys.argv)
     winapi.app_setup()  # after Qt has created its NSApplication on macOS
