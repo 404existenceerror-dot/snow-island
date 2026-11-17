@@ -1,0 +1,19 @@
+name: 💡 Suggest a feature
+description: An idea to make Snow Island better
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What's your idea?
+      placeholder: It would be cool if the snowman could…
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it be useful or fun?
+  - type: textarea
+    id: media
+    attributes:
+      label: Sketches, screenshots or examples (optional)

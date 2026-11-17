@@ -1,0 +1,63 @@
+name: 🐞 Report a bug
+description: Something doesn't work or looks wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping make Snow Island better! ❄️
+        A screenshot or short screen recording helps a lot (Win + Shift + S, or Win + Shift + R to record).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Describe the problem.
+      placeholder: When I swipe to the desktop, the snow on my folders…
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can I make it happen?
+      description: The steps that cause it, if you know them.
+      placeholder: |
+        1. Turn on winter mode
+        2. Wait a minute for snow to pile up
+        3. Click the Truck button
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+  - type: input
+    id: version
+    attributes:
+      label: Snow Island version
+      description: Hover the snowflake icon in the system tray to see it.
+      placeholder: "1.0.1"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 (build 26100)
+  - type: dropdown
+    id: how
+    attributes:
+      label: How do you run it?
+      options:
+        - SnowIsland.exe (download)
+        - start.bat (source code)
+  - type: textarea
+    id: diagnose
+    attributes:
+      label: Diagnostic report (optional)
+      description: |
+        Run `SnowIsland.exe --diagnose` and paste what it shows here.
+        It contains your Windows version and what the app detected. No song titles or personal files.
+      render: text
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots or recording
+      description: Drag files in here.

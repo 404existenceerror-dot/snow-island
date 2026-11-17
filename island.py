@@ -655,5 +655,8 @@ class DynamicIsland(QWidget):
         m.addAction("Move back to top center", self.reset_position)
         m.addAction("Hide island", self.app.toggle_island)
         m.addSeparator()
+        m.addAction("Report a bug…", self.app.report_bug)
+        m.addAction("Suggest a feature…", self.app.suggest_feature)
+        m.addSeparator()
         m.addAction("Quit", self.app.quit)
         m.exec(pos)

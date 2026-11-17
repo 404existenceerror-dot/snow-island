@@ -17,7 +17,8 @@ from settings import Settings
 from settings_dialog import SettingsDialog
 from winter import WinterOverlay
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
+REPO_URL = "https://github.com/404existenceerror-dot/snow-island"
 HERE = os.path.dirname(os.path.abspath(__file__))
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
@@ -60,6 +61,9 @@ class App:
         menu.addSeparator()
         menu.addAction("Show / hide island", self.toggle_island)
         menu.addAction("Settings…", self.open_settings)
+        menu.addSeparator()
+        menu.addAction("Report a bug…", self.report_bug)
+        menu.addAction("Suggest a feature…", self.suggest_feature)
         menu.addSeparator()
         menu.addAction("Quit", self.quit)
         self.tray.setContextMenu(menu)
@@ -149,13 +153,39 @@ class App:
         except OSError:
             self.island.peek("msg", 3, "Spotify isn't installed")
 
+    @staticmethod
+    def windows_version():
+        import platform
+        try:
+            build = int(platform.version().split(".")[2])
+        except (IndexError, ValueError):
+            return platform.platform()
+        return f"Windows {'11' if build >= 22000 else '10'} (build {build})"
+
+    def _open_url(self, url):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        QDesktopServices.openUrl(QUrl(url))
+
+    def report_bug(self):
+        """Opens the GitHub bug form in the browser with the app and Windows versions filled in.
+        Nothing is sent automatically; the person reviews and submits it themselves."""
+        from urllib.parse import urlencode
+        how = "SnowIsland.exe (download)" if getattr(sys, "frozen", False) else "start.bat (source code)"
+        q = urlencode({"template": "bug_report.yml", "labels": "bug", "version": __version__,
+                       "windows": self.windows_version(), "how": how})
+        self._open_url(f"{REPO_URL}/issues/new?{q}")
+
+    def suggest_feature(self):
+        self._open_url(f"{REPO_URL}/issues/new?template=feature_request.yml&labels=enhancement")
+
     def toggle_island(self):
         self.island_hidden = not self.island_hidden
         self.watchdog()
 
     def open_settings(self):
         if self.dialog is None:
-            self.dialog = SettingsDialog(self.settings)
+            self.dialog = SettingsDialog(self.settings, on_feedback=self.report_bug)
             self.dialog.setWindowIcon(make_icon())
         self.dialog.show()
         self.dialog.raise_()

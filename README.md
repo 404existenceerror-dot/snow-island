@@ -1,10 +1,20 @@
 # ❄️ Snow Island
 
-A floating, phone-style "island" bar for Windows 11 (and 10) with a cozy **winter mode**:
-snow falls across your screen, piles up on your desktop icons and taskbar, and you can throw
-snowballs, build snowmen, and call a little snow truck to clean it all up.
+**Make your Windows desktop snow.** A floating, phone-style "island" bar for Windows 11 (and 10)
+with a cozy **winter mode**: snow falls across your screen, piles up on your desktop icons and
+taskbar, and you can throw snowballs, build snowmen, and call a little snow truck to clean it all up.
 
 Everything runs **locally on your PC**. No account, no server, no tracking.
+
+<p align="center">
+  <a href="https://github.com/404existenceerror-dot/snow-island/releases/latest"><b>⬇️ Download SnowIsland.exe</b></a> ·
+  <a href="https://github.com/404existenceerror-dot/snow-island/issues/new?template=bug_report.yml">🐞 Report a bug</a> ·
+  <a href="https://github.com/404existenceerror-dot/snow-island/issues/new?template=feature_request.yml">💡 Suggest a feature</a>
+</p>
+
+![Snow Island: the island bar at the top, snow piled on desktop icons and the taskbar, a snowman, and the snow truck vacuuming snow off an icon](assets/screenshot.png)
+
+*If you like it, a ⭐ on GitHub helps other people find it!*
 
 ---
 
@@ -108,6 +118,19 @@ Settings → **Widgets** → **Start with Windows**.
   Attach it to a GitHub issue.
 
 ---
+
+## Feedback and bug reports
+Found a bug or have an idea? Please tell me!
+
+- **From the app:** right-click the tray snowflake (or the island) → **Report a bug…** or
+  **Suggest a feature…**. Your browser opens a GitHub form with the app and Windows version
+  already filled in. Nothing is sent until you press *Submit*.
+- **On GitHub:** open the [Issues](https://github.com/404existenceerror-dot/snow-island/issues/new/choose) tab and pick a form.
+
+A screenshot or short screen recording (Win + Shift + R) makes bugs much faster to fix.
+
+## Contributing
+Pull requests are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Build the .exe yourself
 Double-click **`build_exe.bat`**. It creates `dist\SnowIsland.exe`, which you can upload to a

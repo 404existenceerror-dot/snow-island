@@ -24,7 +24,7 @@ QCheckBox::indicator { width:18px; height:18px; }
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, settings, parent=None):
+    def __init__(self, settings, parent=None, on_feedback=None):
         super().__init__(parent)
         self.settings = settings
         self.refreshers = []
@@ -116,6 +116,10 @@ class SettingsDialog(QDialog):
         close = QPushButton("Close")
         close.clicked.connect(self.close)
         row.addWidget(reset)
+        if on_feedback:
+            fb = QPushButton("Report a bug / feedback")
+            fb.clicked.connect(on_feedback)
+            row.addWidget(fb)
         row.addStretch(1)
         row.addWidget(close)
         root.addLayout(row)
