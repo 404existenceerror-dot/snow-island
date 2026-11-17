@@ -54,7 +54,15 @@ jobs:
       - name: Self-test (runs the app for 8 seconds)
         env:
           SNOW_ISLAND_AUTOQUIT: "8"
-        run: .venv/bin/python snow_island.py
+        run: |
+          set +e
+          .venv/bin/python -X faulthandler snow_island.py 2> selftest-err.txt
+          code=$?
+          cat selftest-err.txt
+          if [ $code -ne 0 ]; then
+            python3 -c "t=open('selftest-err.txt').read()[-6000:]; print('::error title=Mac self-test crashed::' + t.replace('%','%25').replace('\r','').replace('\n','%0A'))"
+          fi
+          exit $code
       - name: Parser tests
         run: .venv/bin/python tests/test_mac_parsers.py
       - name: Build Snow Island.app
@@ -85,7 +93,17 @@ jobs:
       - name: Self-test (runs the app for 8 seconds on a virtual screen)
         env:
           SNOW_ISLAND_AUTOQUIT: "8"
-        run: dbus-run-session -- xvfb-run -a -s "-screen 0 1920x1080x24" .venv/bin/python snow_island.py
+        run: |
+          set +e
+          dbus-run-session -- xvfb-run -a -s "-screen 0 1920x1080x24" \
+            .venv/bin/python -X faulthandler snow_island.py 2> selftest-err.txt
+          code=$?
+          cat selftest-err.txt
+          # show the end of any crash output as a note on the run (readable without signing in)
+          if [ $code -ne 0 ]; then
+            python3 -c "t=open('selftest-err.txt').read()[-6000:]; print('::error title=Linux self-test crashed::' + t.replace('%','%25').replace('\r','').replace('\n','%0A'))"
+          fi
+          exit $code
       - name: Parser tests
         run: .venv/bin/python tests/test_mac_parsers.py && .venv/bin/python tests/test_linux_parsers.py
       - name: Build SnowIsland-linux
